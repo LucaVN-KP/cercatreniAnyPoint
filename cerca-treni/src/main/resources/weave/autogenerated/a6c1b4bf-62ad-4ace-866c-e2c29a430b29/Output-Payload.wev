@@ -1,0 +1,8 @@
+%dw 2.0
+
+type auto_a6c1b4bf_62ad_4ace_866c_e2c29a430b29_Output_Payload = {
+  codice?: String, 
+  tappe?: Array<{    orario?: String,     stazione?: String,     _?: Any  }>, 
+  _?: Any
+}
+

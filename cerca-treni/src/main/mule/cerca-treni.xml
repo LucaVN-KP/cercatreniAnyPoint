@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+    <http:listener-config name="cerca-treni-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="cerca-treni-config" api="resource::f753f411-2239-42a5-a27b-850bccb29669:cerca-treni:1.0.6:raml:zip:cerca-treni.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <db:config name="Database_Config" doc:name="Database Config" doc:id="c758fece-f0c1-4e89-89de-f918b55ed305" >
+		<db:generic-connection url="jdbc:postgresql://localhost:5432/customermanagement" driverClassName="org.postgresql.Driver" user="postgres" password="postgres" />
+	</db:config>
+	<flow name="cerca-treni-main">
+        <http:listener config-ref="cerca-treni-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="cerca-treni-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+	<flow name="cerca-treni-console">
+        <http:listener config-ref="cerca-treni-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="cerca-treni-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\treni\(id):cerca-treni-config" doc:id="a6c1b4bf-62ad-4ace-866c-e2c29a430b29">
+        <validation:is-not-null doc:name="Is not null" doc:id="fc2b405e-b749-4e9f-854b-369f32ce4cf3" value="#[attributes.uriParams.id]" message="Se hai cercato un treno con l'orario, non ci sono treni per l'orario inserito" />
+        <validation:is-number doc:name="Is number" doc:id="50d37f40-f38d-4a13-ad2f-d92db6b318c1" value="#[attributes.uriParams.id]" numberType="INTEGER" message="L'uri parameter (l'id) inserito non è un numero valido" minValue="#[22219]" />
+        <db:select doc:name="Select" doc:id="7819ca41-41ec-4792-9843-387c4c8f70e3" config-ref="Database_Config">
+            <db:sql><![CDATA[SELECT treno, stazione, orario
+FROM sctr.orari AS o
+WHERE o.treno = :id]]></db:sql>
+            <db:input-parameters><![CDATA[#['id': attributes.uriParams.id]]]></db:input-parameters>
+        </db:select>
+		<ee:transform doc:name="Transform Message" doc:id="0946ba5c-8ae6-494e-a308-4ffd69f35e1d">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="tragitto"><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <set-variable value="#[[]]" doc:name="prima tappa" doc:id="6ed20dca-c0a7-412b-8cf4-742cd545faec" variableName="tappa" />
+        <foreach doc:name="For Each" doc:id="accaba2a-25c7-4673-9e2b-49eb02c243c9" collection="#[vars.tragitto]">
+            <set-variable value="#[%dw 2.0&#xA;output application/json&#xA;var o = payload.orario as String&#xA;---&#xA;o[11 to 15]]" doc:name="orario come stringa" doc:id="2d03f963-4ff8-4978-a15e-ff8efe04c3aa" variableName="ora" />
+            <db:select doc:name="Select" doc:id="ea55cd09-a202-4e45-9886-9300fdc36263" config-ref="Database_Config">
+                <db:sql><![CDATA[SELECT s.nome
+FROM sctr.stazioni AS s
+WHERE s.staz_id = :codice]]></db:sql>
+                <db:input-parameters><![CDATA[#[{codice:payload.stazione}]]]></db:input-parameters>
+            </db:select>
+            <ee:transform doc:name="Transform Message" doc:id="b10ed0aa-0c5b-4a95-8d51-330a922783b3">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	stazione: payload.nome[0],
+	orario: vars.ora
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables />
+            </ee:transform>
+            <set-variable value="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;vars.tappa + payload]" doc:name="aggiungi tappa" doc:id="f632b06f-c004-4926-b93e-09706f9484ca" variableName="tappa" />
+        </foreach>
+        <ee:transform doc:name="Transform Message" doc:id="bda3d72c-d0cf-4357-addb-9cd82b1a3996">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	codice: payload.treno[0],
+	tappe: vars.tappa
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <error-handler>
+            <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="b4f023fc-5133-4f8a-ae68-d4461c178688" type="VALIDATION:INVALID_NUMBER, VALIDATION:NULL">
+                <set-payload value="#[error.detailedDescription]" doc:name="Set Payload" doc:id="6ae15eba-69b1-445e-8e95-1e032cb2cb2d" />
+            </on-error-propagate>
+            <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="aceefef5-0186-409e-9389-2753e7c19563" type="ANY">
+                <set-payload doc:name="Set Payload" doc:id="9a8e440b-cf18-4f7b-8636-ca6c0ba18b16" value="#[error.description]" />
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="post:\treni:application\json:cerca-treni-config">
+        <choice doc:name="Choice" doc:id="ca0e489a-c130-4df6-a580-f80be775bdea">
+            <when expression="#[payload.codice != null]">
+                <!-- [STUDIO:"Set Variable"]<set-variable value="#[payload.tappe[0&#93;&#93;" doc:name="Set Variable" doc:id="b1c1c24a-c27f-4316-8b8f-49c4f2a00409" variableName="tappaInput"/> [STUDIO] -->
+                <ee:transform doc:name="Transform Message" doc:id="90c596d0-8820-439c-9078-39adea9cd01b">
+                    <ee:message>
+                        <ee:set-attributes><![CDATA[%dw 2.0
+output application/java
+---
+attributes ++ "uriParams" :{"id": payload.codice}]]></ee:set-attributes>
+                    </ee:message>
+                </ee:transform>
+                <flow-ref doc:name="Flow Reference" doc:id="67f7b6d9-95c3-4bdb-80c0-b0b15f5fe9d3" name="get:\treni\(id):cerca-treni-config" />
+                <!-- [STUDIO:"Set Payload"]<set-payload value="vorrei fare che ti dice se la prima tappa era una del treno o no ma diventa complicato" doc:name="Set Payload" doc:id="3d624c3f-7fd8-4034-be4a-d6d8550cba44" /> [STUDIO] -->
+            </when>
+            <when expression="#[payload.tappe[0].stazione != null and payload.tappe[0].orario != null]">
+                <ee:transform doc:name="Transform Message" doc:id="acb091dc-4db7-4563-ae8f-0ea319e21c56">
+                    <ee:message />
+                    <ee:variables>
+                        <ee:set-variable variableName="ora"><![CDATA[%dw 2.0
+output application/json
+var ora = (payload.tappe.orario[0][0 to 1] default "")
+var oradiff = (if (ora < 3) 0 else ora as Number -3)
+---
+if (oradiff <10)
+"0"++(oradiff as String)++":00:00"
+else
+(oradiff as String)++":00:00"]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <db:select doc:name="Select" doc:id="46f8b084-1c62-4571-9c83-a52223637437" config-ref="Database_Config">
+                    <db:sql><![CDATA[SELECT o.treno, s.nome, o.orario 
+FROM sctr.orari AS o JOIN sctr.stazioni AS s ON o.stazione = s.staz_id
+where o.orario >= :ora AND s.nome = :staz
+ORDER BY orario ASC]]></db:sql>
+                    <db:input-parameters><![CDATA[#[{staz: payload.tappe[0].stazione,
+ora: vars.ora as Time
+}]]]></db:input-parameters>
+                </db:select>
+                <ee:transform doc:name="Transform Message" doc:id="5f13ab9d-c5e6-40b6-8178-abfa4b32d9b7">
+                    <ee:message>
+                        <ee:set-attributes><![CDATA[%dw 2.0
+output application/java
+---
+"uriParams" :{"id": payload.treno[0]}]]></ee:set-attributes>
+                    </ee:message>
+                </ee:transform>
+                <flow-ref doc:name="Flow Reference" doc:id="1d1abf9c-7cb5-4c7d-9a28-a038cfb54556" name="get:\treni\(id):cerca-treni-config" />
+                <ee:transform doc:name="Transform Message" doc:id="8e313ecc-9269-4d52-a7b5-3563c2901fb5">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Il primo treno che passa per la stazione inserita è il treno "++ (payload.codice default ""),
+	tappe: payload.tappe
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </when>
+            <when expression="#[payload.tappe[0].stazione != null]">
+                <set-variable value="#[payload.tappe.stazione[0]]" doc:name="Set Variable" doc:id="0de65622-3f9a-4418-b57c-f2cea96014d4" variableName="stazione" />
+                <db:select doc:name="Select" doc:id="ff3a76d5-aa79-482e-8891-daf98bbcffd7" config-ref="Database_Config">
+                    <db:sql><![CDATA[SELECT o.treno, s.nome, o.orario 
+FROM sctr.orari AS o JOIN sctr.stazioni AS s ON o.stazione = s.staz_id
+where s.nome = :staz
+ORDER BY orario ASC]]></db:sql>
+                    <db:input-parameters><![CDATA[#[{staz:payload.tappe.stazione[0]}]]]></db:input-parameters>
+                </db:select>
+                <set-variable value="#[[]]" doc:name="Inizializz. Risultato" doc:id="30a75ae5-fac1-4027-a257-d1a9032a85b3" variableName="risultato" />
+                <foreach doc:name="For Each" doc:id="d29934be-05bb-4e0c-a025-b7f34d51bb55" collection="#[payload]">
+                    <ee:transform doc:name="Transform Message" doc:id="0ca1550f-683f-4a08-be38-91215e458f17">
+                        <ee:message>
+                            <ee:set-attributes><![CDATA[%dw 2.0
+output application/java
+---
+"uriParams" :{"id": payload.treno}]]></ee:set-attributes>
+                        </ee:message>
+                    </ee:transform>
+                    <flow-ref doc:name="Flow Reference" doc:id="7fdab8aa-1467-44fe-b5d1-bc88164909e4" name="get:\treni\(id):cerca-treni-config" />
+                    <set-variable value="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;vars.risultato + {&quot;codice&quot;: payload.codice, &#xA;&quot;tappa richiesta&quot;:payload.tappe[?($.stazione == vars.stazione)][0],&#xA;&quot;tappa finale&quot;:payload.tappe[-1]}]" doc:name="Aggiornamento Risultato" doc:id="51f4a8c5-3359-407c-b229-f2e8830129bd" variableName="risultato" />
+                </foreach>
+                <set-payload value="#[vars.risultato]" doc:name="Set Payload" doc:id="3bf8774d-5414-4f7b-a3f3-e1528d64f1b8" />
+            </when>
+            <otherwise>
+                <raise-error doc:name="Raise error" doc:id="e9fd953b-51fb-4a0e-9ff2-7f3f6a92f665" type="MINE:INVALID_POSTBODY" />
+            </otherwise>
+        </choice>
+        <error-handler>
+            <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="f1eba9b6-8ae0-4c8f-afe9-c03bb9ef2a40" type="MINE:INVALID_POSTBODY">
+                <set-payload value="Il body della richiesta POST non soddisfa i requisiti" doc:name="Set Payload" doc:id="cccb95b2-c436-4a7f-9224-d1bde402c6ce" />
+            </on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="8f80624d-2452-4dc4-b61f-9f468f7b3b64" type="ANY">
+				<set-payload value="#[error.description]" doc:name="Set Payload" doc:id="602040b2-a7d1-4854-bbc9-6c09eba667ae" />
+			</on-error-propagate>
+        </error-handler>
+    </flow>
+</mule>
